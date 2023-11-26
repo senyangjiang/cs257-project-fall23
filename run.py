@@ -2,159 +2,106 @@ import argparse
 import multiprocessing
 import os
 import datetime
-import bisect
-from pickle import dump
-from pathlib import Path
+import pandas as pd
 
 from common import *
 from benchmark import Benchmark
-from mk_text_report import create_report
 
 def process(bm):
     return bm.execute()
-
-def find_timeout(path):
-    if os.path.exists(os.path.join(path, "TIMEOUT")):
-        with open(os.path.join(path, "TIMEOUT"), "rU") as fd:
-            tmp = int(fd.read().strip())
-            assert tmp > 0
-            return tmp
-    elif "/" in path:
-        return find_timeout("/".join(path.split("/")[:-1]))
-    else:
-        return None
     
 def main():
     ap = argparse.ArgumentParser()
+    ### Solver ###
+    ap.add_argument("--solver_kind",
+                    default="z3",
+                    choices=["z3"])
+    ap.add_argument("--solver_args",
+                    default="")
+    ap.add_argument("--solver_bin",
+                    default="z3",
+                    choices=["z3"])
+    ### Benchmark ###
     ap.add_argument("--suite",
-                    default="test",
-                    choices=["test",
-                             "smtlib",
-                             "anni"])
-    ap.add_argument("--single",
-                    default=True,
-                    action="store_true")
-    ap.add_argument("--timeout",
-                    default=None,
+                    default="anni_2022",
+                    choices=["anni_2022"])
+    ap.add_argument("--count",
                     type=int,
-                    help="by default we use the benchmark-specific timeout; "
-                    "use this option to globally override it")
-    ap.add_argument("--force",
+                    default=None)
+    ### Execution ###
+    ap.add_argument("--parallel",
                     default=False,
                     action="store_true")
+    ap.add_argument("--timeout",
+                    default=1,
+                    type=int,
+                    help="set global timeout, default is 60 seconds")
+    ### Result ###
+    ap.add_argument("--input_csv",
+                    default=None)
     ap.add_argument("--report",
                     default=False,
                     action="store_true")
     options = ap.parse_args()
 
     bench_dirs = []
-    if options.suite == "test":
-        bench_dirs.append("test")
-    if options.suite == "smtlib":
-        bench_dirs.append("smtlib")
-    if options.suite == "anni":
+    if options.suite == "anni_2022":
         bench_dirs.append("anni_2022")
-
-    data_filename = f"data_z3_z3.p"
-
-    # Check for existing results; skip this step in --force mode
-    EXISTING_RESULTS = set()
-    if not options.force:
-        Path("results").mkdir(exist_ok=True)
-        for group in os.listdir("results"):
-            if not os.path.isdir(os.path.join("results", group)):
-                continue
-            if data_filename in os.listdir(os.path.join("results", group)):
-                EXISTING_RESULTS.add(group)
 
     print("Assembling benchmarks...")
     benchmarks = []
     for d in bench_dirs:
+        cnt = 0
         for path, _, files in os.walk(d):
-            timeout = options.timeout
-            if timeout is None:
-                timeout = find_timeout(path)
             for file in sorted(files):
-                if file.endswith(".smt2") or file.endswith(".cnf"):
-                    bm = Benchmark(os.path.join(path, file), timeout)
-                    if bm.group not in EXISTING_RESULTS:
-                        benchmarks.append(bm)
+                if file.endswith(".cnf"):
+                    bm = Benchmark(os.path.join(path, file), 
+                                   options.timeout, 
+                                   options.solver_bin, 
+                                   options.solver_args)
+                    benchmarks.append(bm)
+                    cnt += 1
+                    if options.count and cnt >= options.count:
+                        break
+        print(f"Loaded {cnt} benchmarks from {d}")
 
-    if len(benchmarks) == 0:
-        print("Results for z3 (z3) already exist. Use --force to recreate.")
-        return
+    print("Read any previous benchmark results...")
+    base = None
+    if options.input_csv and os.path.exists(options.input_csv):
+        base = pd.read_csv(options.input_csv)
+    else:
+        base = pd.DataFrame(columns=["hash", "benchmark"])
+        for bm in benchmarks:
+            base.loc[len(base.index)] = [bm.hash, bm.name]
 
-    BENCHMARK_GROUPS = frozenset(bm.group for bm in benchmarks)
-    
-    # Written to benchmarks.p
-    BENCHMARK_STATUS = {group : {"sat"     : [],
-                                 "unsat"   : [],
-                                 "unknown" : [],
-                                 "timeout" : [],
-                                 "oom"     : []}
-                        for group in BENCHMARK_GROUPS}
-    
-    # Written to data_filename
-    RESULTS = {group : {} for group in BENCHMARK_GROUPS}
+    print(base)
 
-    def analyze(result, progress, start_time):
-        bm = result.benchmark
-        group = bm.group
-
-        result.print_summary(progress, start_time)
-
-        # Record expected benchmark status
-        bisect.insort(BENCHMARK_STATUS[group][result.prover_status], bm.sha)
-
-        # Record verdict
-        status_shorthand = {"unsat"   : "u",
-                            "sat"     : "s",
-                            "error"   : "e",
-                            "timeout" : "t",
-                            "oom"     : "o",
-                            "unknown" : "?"}[result.prover_status]
-
-        RESULTS[group][bm.sha] = {
-            "status"  : status_shorthand,
-            "time"    : result.cpu_time,
-            "comment" : result.comment,
-        }
-    
     print("Perform benchmark...")
+    solver_id = f"{options.solver_kind}+'{options.solver_args}'"
+    df = pd.DataFrame(columns=[f"time({solver_id})", f"result({solver_id})"])
+
     start_time = datetime.datetime.now()
     n = 0
-    if options.single:
+    
+    if options.parallel:
+        batch = 5
+        pool = multiprocessing.Pool()
+        for result in pool.map(process, benchmarks, batch):
+            n += 1
+            result.print_summary(float(n * 100) / float(len(benchmarks)), start_time)
+            result.add_csv(df)
+    else:
         for bm in benchmarks:
             n += 1
-            analyze(process(bm),
-                    float(n * 100) / float(len(benchmarks)),
-                    start_time)
-    else:
-        batch = 1 if options.suite in ("debug") else 5
-        pool = multiprocessing.Pool()
-        for result in pool.imap_unordered(process, benchmarks, batch):
-            n += 1
-            analyze(result,
-                    float(n * 100) / float(len(benchmarks)),
-                    start_time)
-    
-    print("Write group results...")
-    for group in BENCHMARK_GROUPS:
-        Path(os.path.join("results", group)).mkdir(parents=True, exist_ok=True)
+            result = process(bm)
+            result.print_summary(float(n * 100) / float(len(benchmarks)), start_time)
+            result.add_csv(df)
 
-        with open(os.path.join("results",
-                               group,
-                               "benchmarks.p"),
-                  "wb") as fd:
-            dump(BENCHMARK_STATUS[group], fd, -1)
-        with open(os.path.join("results",
-                               group,
-                               data_filename),
-                  "wb") as fd:
-            dump(RESULTS[group], fd, -1)
-
-    if options.report:
-        create_report("z3", "z3")
+    print(df)
+    print("Collect Results...")
+    out = pd.concat([base, df], axis=1)
+    print(out)
+    out.to_csv('output.csv', index=True)
 
 if __name__ == "__main__":
     main()

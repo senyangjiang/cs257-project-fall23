@@ -4,30 +4,21 @@ class Result(object):
     def __init__(self, bm, status, comment, cpu_time):
         assert status in ("sat", "unsat", "unknown", "timeout", "oom", "error")
         self.benchmark     = bm
-        self.prover_status = status
+        self.status        = status
         self.comment       = comment
         self.cpu_time      = cpu_time
 
-        if (self.prover_status in ("sat", "unsat") and
-            self.benchmark.expected in ("sat", "unsat") and
-            self.prover_status != self.benchmark.expected):
-            self.status = "unsound"
-            self.comment = f"result {self.prover_status} is not {self.benchmark.expected}"
-        else:
-            self.status = self.prover_status
-
     def __str__(self):
-        map = {
+        MAP = {
             "sat"     : 's ✓',
             "unsat"   : 'u ✓',
             "unknown" : ' ? ',
             "timeout" : ' ⌛ ',
             "oom"     : 'oom',
             "error"   : 'err',
-            "unsound" : ' ! ',
         }
 
-        return f"(runtime:{self.cpu_time}) [{map[self.status]}] {self.benchmark.name}"
+        return f"(runtime:{self.cpu_time}) [{MAP[self.status]}] {self.benchmark.name}"
 
     def print_summary(self, progress, start_time):
         now = datetime.datetime.now()
@@ -37,5 +28,9 @@ class Result(object):
         remaining = per_percent * (100.0 - progress)
 
         print(f"<{progress:.1f}%> Time Remaining:{remaining:.0f} {str(self)}")
-        if self.status in ("error", "unsound"):
+        if self.status in ("error"):
             print(self.comment.strip())
+
+    def add_csv(self, df):
+        # status | time
+        df.loc[len(df.index)] = [self.status, self.cpu_time]
