@@ -14,12 +14,9 @@ def main():
     ### Solver ###
     ap.add_argument("--solver_kind",
                     default="z3",
-                    choices=["z3", "kissat", "cadical"])
+                    choices=["z3", "kissat", "cadical", "cryptominisat"])
     ap.add_argument("--solver_args",
                     default="")
-    ap.add_argument("--solver_bin",
-                    default="z3",
-                    choices=["z3", "./kissat-3.1.0", "./cadical-1.9.0"])
     ### Benchmark ###
     ap.add_argument("--suite",
                     default="anni_2022",
@@ -32,7 +29,7 @@ def main():
                     default=False,
                     action="store_true")
     ap.add_argument("--timeout",
-                    default=1,
+                    default=60,
                     type=int,
                     help="set global timeout, default is 60 seconds")
     ### Result ###
@@ -56,7 +53,7 @@ def main():
                 if file.endswith(".cnf"):
                     bm = Benchmark(os.path.join(path, file), 
                                    options.timeout, 
-                                   options.solver_bin, 
+                                   options.solver_kind, 
                                    options.solver_args)
                     benchmarks.append(bm)
                     cnt += 1

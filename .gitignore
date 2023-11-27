@@ -1,7 +1,9 @@
 *
 !benchmark.py
 !common.py
-!mk_text_report.py
+!report.py
 !result.py
 !run.py
 !.gitignore
+!solver
+!run_all.sh
