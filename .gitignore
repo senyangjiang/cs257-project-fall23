@@ -5,5 +5,7 @@
 !result.py
 !run.py
 !.gitignore
-!solver
+!solver/*
 !run_all.sh
+!track_anni_2022.uri
+!solver

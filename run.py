@@ -29,7 +29,7 @@ def main():
                     default=False,
                     action="store_true")
     ap.add_argument("--timeout",
-                    default=60,
+                    default=30,
                     type=int,
                     help="set global timeout, default is 60 seconds")
     ### Result ###
@@ -49,7 +49,7 @@ def main():
     for d in bench_dirs:
         cnt = 0
         for path, _, files in os.walk(d):
-            for file in sorted(files):
+            for file in sorted(files)[500:]:
                 if file.endswith(".cnf"):
                     bm = Benchmark(os.path.join(path, file), 
                                    options.timeout, 

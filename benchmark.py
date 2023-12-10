@@ -31,10 +31,10 @@ class Benchmark:
         end_time = time.perf_counter()
 
         elapsed_s = end_time - start_time
-        print("stdout:")
-        print(log.stdout)
-        print("stderr:")
-        print(log.stderr)
+        # print("stdout:")
+        # print(log.stdout)
+        # print("stderr:")
+        # print(log.stderr)
         stdout_lines = log.stdout.splitlines()
         status = None
         if stdout_lines:

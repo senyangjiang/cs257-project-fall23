@@ -1,48 +1,65 @@
-# cs257-project-fall23
+# Optimizing SAT Solvers by Machine Learning
 
-# Editing this README
+## Files
+This repo contains the source code for experiments in "Optimizing SAT Solvers by Machine Learning". It includes:
+- Linux binary for 4 different solvers: 
+    - z3
+    - kissat
+    - cryptominisat
+    - cadical
+- scripts for running the solvers on benchmarks and collect results in a `.csv` file: `run.py`
+- scripts for extracting features from benchmarks: `SATfeatPy/generate_bulk_features.py`
+- jupyter notebook for preparing train data: `data.ipynb`
+- jupyter notebook for training a 2-layer network for prediction : `model.ipynb`
+We actually ran the jupyter notebook on google colab, but we copied the notebook here for convenience
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+Our experiement are carried out on the SAT 2022 Competition Anniversary Track Benchmarks
+https://satcompetition.github.io/2022/downloads.html
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+The whole dataset is over 100GB after unzipping, you can download the dataset using
+~~~
+wget --content-disposition -i track_anni_2022.uri
+~~~
 
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+## Required Python3 packages
+We are using Python 3.10. Running the experiments requires the following packages
+- Performing benchmark, Prepare train data
+    - `pandas`
+- Train model
+    - `keras`
+    - `tensorflow`
+    - `scikeras`
+    - `sklearn`
+    - `matplotlib`
+    
+We recommend running the jupyer notebook on Google Colab so you don't have to install these packages yourself (except `scikeras`)
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### Perform Benchmark
+Use `run.py` to run solvers on the `anni_2022` dataset, you can see available options using `python3 run.py -h`.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+For example, to run z3 solver
+- on the first 300 benchmarks,
+- with timeout of 60 seconds,
+- with default configuration 
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+use the following commmand:
+~~~
+python3 run.py --count=300 --solver_kind=z3 --timeout=60
+~~~
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+Results are written to `output.csv`
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### Extract features
+Use `/SATfeatPy/generate_bulk_features.py` to extract features from formulas in the `anni_2022` benchmark. If you want to change the set of features or run on another benchmark, you need to manually adjust the code in the file.
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Results are written to `features.csv`
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+### Prepare Train Data
+Follow the steps in `data.ipynb` to prepare the dataset where
+- input: features of each formula
+- output: best configuration that leads to fastest run time
+Train data are written to `result_normalized.csv`
 
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## Train Model
+Follow the steps in `data.ipynb` to train the model
