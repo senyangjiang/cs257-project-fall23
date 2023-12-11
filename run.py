@@ -20,7 +20,7 @@ def main():
     ### Benchmark ###
     ap.add_argument("--suite",
                     default="anni_2022",
-                    choices=["anni_2022"])
+                    choices=["anni_2022", "smt_lib"])
     ap.add_argument("--count",
                     default=None,
                     type=int)
@@ -35,22 +35,21 @@ def main():
     ### Result ###
     ap.add_argument("--add_to_csv",
                     default=None)
-    ap.add_argument("--report",
-                    default=False,
-                    action="store_true")
     options = ap.parse_args()
 
     bench_dirs = []
     if options.suite == "anni_2022":
         bench_dirs.append("anni_2022")
+    elif options.suite == "smt_lib":
+        bench_dirs.append("smt_lib")
 
     print("Assembling benchmarks...")
     benchmarks = []
     for d in bench_dirs:
         cnt = 0
         for path, _, files in os.walk(d):
-            for file in sorted(files)[500:]:
-                if file.endswith(".cnf"):
+            for file in sorted(files):
+                if file.endswith(".cnf") or file.endswith(".smt"):
                     bm = Benchmark(os.path.join(path, file), 
                                    options.timeout, 
                                    options.solver_kind, 
