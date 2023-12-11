@@ -1,13 +1,3 @@
-*
-!benchmark.py
-!common.py
-!report.py
-!result.py
-!run.py
-!.gitignore
-!solver/*
-!run_all.sh
-!track_anni_2022.uri
-!solver
-!SMT-LIB-clone.sh
-!SATfeatPy
+anni_2022
+*.out
+*.csv
