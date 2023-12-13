@@ -1,3 +1,4 @@
 anni_2022
 *.out
 *.csv
+__pycache__
